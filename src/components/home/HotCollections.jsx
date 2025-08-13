@@ -1,14 +1,11 @@
-// Carousel implementation for Hot Collections using react-slick.
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import Slider from "react-slick";
 import { Link } from "react-router-dom";
 
-// Include slick styles once in the app 
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
 
-// Local fallback images (used if API doesn't provide these values)
 import AuthorFallback from "../../images/author_thumbnail.jpg";
 import NftFallback from "../../images/nftImage.jpg";
 
@@ -67,7 +64,7 @@ const HotCollections = () => {
         const { data } = await axios.get(API, { timeout: 5000 });
         if (!mounted) return;
 
-       
+        // Use the full dataset
         const input = Array.isArray(data) ? data : [];
 
         // If fewer than 4 items are returned, duplicate until we reach 4+
@@ -92,7 +89,7 @@ const HotCollections = () => {
     };
   }, []);
 
-  // Slider configuration: 4 visible, scroll 1, infinite loop, custom arrows
+  // Slider configuration: 4 visible, scroll 1, infinite loop
   const sliderSettings = useMemo(
     () => ({
       infinite: true,
@@ -103,7 +100,7 @@ const HotCollections = () => {
       dots: false,
       nextArrow: <ArrowButton direction="next" />,
       prevArrow: <ArrowButton direction="prev" />,
-   
+      //  responsive behavior; still scroll 1 at a time
       responsive: [
         { breakpoint: 1200, settings: { slidesToShow: 3 } },
         { breakpoint: 992, settings: { slidesToShow: 2 } },
@@ -116,7 +113,7 @@ const HotCollections = () => {
   return (
     <section id="section-collections" className="no-bottom">
       <div className="container">
-        {/* Title row is separate from slider so layout matches existing sections */}
+       
         <div className="row">
           <div className="col-lg-12">
             <div className="text-center">
@@ -126,7 +123,7 @@ const HotCollections = () => {
           </div>
         </div>
 
-        {/* Replace the previous grid with a full-width carousel wrapper */}
+        
         <div className="position-relative" style={{ marginTop: 12 }}>
           {/* Loading state: show a temporary 4-up slider with skeleton cards */}
           {loading && (
@@ -244,22 +241,8 @@ const HotCollections = () => {
         </div>
       </div>
 
-      {/* Scoped styles that nudge spacing and arrow appearance to match the screenshot without touching globals */}
-      <style>{`
-        #section-collections.no-bottom { padding-bottom: 0; }
-
-        .nft_coll { background: #fff; border-radius: 16px; border: 1px solid rgba(0,0,0,0.06); }
-        .nft_wrap img { border-radius: 12px; }
-
-        .nft_coll_pp { margin-top: -26px; display: flex; align-items: center; padding-left: 18px; }
-        .pp-coll { width: 52px; height: 52px; border-radius: 9999px; border: 3px solid #fff; object-fit: cover; }
-
-        .nft_coll_info { padding: 10px 18px 18px; }
-        .nft_coll_info h4 { margin: 8px 0 6px; }
-
-        /* Remove default slick arrow glyphs because custom buttons are used */
-        .slick-prev:before, .slick-next:before { content: none; }
-      `}</style>
+  
+  
     </section>
   );
 };
