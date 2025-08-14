@@ -1,9 +1,3 @@
-// src/components/home/NewItems.jsx
-// quick notes from me:
-// - Skeleton matches our Hot Collections pattern: simple shimmer blocks, 4-up grid, no Owl.
-// - When items arrive, we init Owl (4-up, slideBy 1, loop). Clean destroy on unmount/reinit.
-// - Countdown stays: hide if no expiry, EXPIRED if past, else hh mm ss.
-
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
@@ -14,7 +8,7 @@ import nftImage from "../../images/nftImage.jpg";
 
 const API = "https://us-central1-nft-cloud-functions.cloudfunctions.net/newItems";
 
-// expose jQuery for Owl (same as Hot Collections)
+// expose jQuery for Owl (same approach as Hot Collections)
 if (typeof window !== "undefined") {
   window.$ = window.jQuery = $;
 }
@@ -24,10 +18,11 @@ try {
   try {
     require("owl.carousel/dist/owl.carousel");
   } catch {
-    // if this fails, $().owlCarousel will be undefined at runtime
+    // if both fail, $().owlCarousel will be undefined at runtime
   }
 }
 
+// normalize API → card shape
 function normalize(raw, idx) {
   const cover =
     raw?.nftImage || raw?.image || raw?.cover || raw?.banner || nftImage;
@@ -39,7 +34,7 @@ function normalize(raw, idx) {
   const likes =
     typeof raw?.likes === "number" ? raw.likes : Number(raw?.likes) || 0;
 
-  // expiryDate may be seconds or ms; normalize to ms; 0 means "absent"
+  // expiryDate may be seconds or ms; convert to ms; 0 means no countdown
   const unix = Number(raw?.expiryDate ?? raw?.expiry ?? 0);
   const expiryMs = unix ? (unix > 1e12 ? unix : unix * 1000) : 0;
 
@@ -49,6 +44,7 @@ function normalize(raw, idx) {
   return { cover, avatar, title, price, likes, expiryMs, nftId, authorId };
 }
 
+// tiny countdown per card (updates every second)
 const Countdown = ({ end }) => {
   const [now, setNow] = useState(() => Date.now());
 
@@ -58,7 +54,7 @@ const Countdown = ({ end }) => {
     return () => clearInterval(id);
   }, [end]);
 
-  if (!end) return null;
+  if (!end) return null; // hide pill entirely when no expiry
 
   const delta = end - now;
   if (delta <= 0) return <span>EXPIRED</span>;
@@ -76,7 +72,7 @@ const NewItems = () => {
   const [loading, setLoading] = useState(true);
   const carouselRef = useRef(null);
 
-  // fetch
+  // fetch all items
   useEffect(() => {
     let alive = true;
 
@@ -84,10 +80,10 @@ const NewItems = () => {
       .get(API, { timeout: 8000 })
       .then(({ data }) => {
         if (!alive) return;
-        const arr = Array.isArray(data) ? data.slice(0, 12) : [];
+        const arr = Array.isArray(data) ? data : [];
         let usable = arr.map(normalize);
 
-        // ensure >= 4 so the loop feels right
+        // if < 4, duplicate to keep loop behavior sane
         if (usable.length > 0 && usable.length < 4) {
           while (usable.length < 4) usable = usable.concat(usable);
           usable = usable.slice(0, 4);
@@ -96,7 +92,7 @@ const NewItems = () => {
         setItems(usable);
       })
       .catch(() => {
-        setItems([]); // skeleton will show
+        setItems([]); // skeleton shows
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -107,27 +103,26 @@ const NewItems = () => {
     };
   }, []);
 
-  // owl init/destroy (don’t run while skeleton is showing)
+  // Owl lifecycle 
   useEffect(() => {
     const el = carouselRef.current;
     if (!el) return;
 
-    // if still loading or empty → make sure Owl is not mounted
+    const $el = $(el);
+
+    // no owl while loading/empty; also ensure teardown if it was mounted
     if (loading || items.length === 0) {
-      const $maybe = $(el);
-      if ($maybe.hasClass("owl-loaded")) {
+      if ($el.hasClass("owl-loaded")) {
         try {
-          $maybe.trigger("destroy.owl.carousel");
-          $maybe.find(".owl-stage-outer").children().unwrap();
-          $maybe.removeClass("owl-loaded");
+          $el.trigger("destroy.owl.carousel");
+          $el.find(".owl-stage-outer").children().unwrap();
+          $el.removeClass("owl-loaded");
         } catch {}
       }
       return;
     }
 
-    const $el = $(el);
-
-    // clean destroy before re-init (StrictMode safety)
+    // safety destroy before init (StrictMode double-effect guard)
     if ($el.hasClass("owl-loaded")) {
       try {
         $el.trigger("destroy.owl.carousel");
@@ -156,12 +151,55 @@ const NewItems = () => {
       },
     });
 
+
+    const HOLD_DELAY = 250;
+    const STEP_INTERVAL = 160;
+
+    const bindPressHold = ($btn, dir) => {
+      let holdTimer = null;
+      let repeatTimer = null;
+
+      const start = () => {
+        clearTimeout(holdTimer);
+        holdTimer = setTimeout(() => {
+          clearInterval(repeatTimer);
+          repeatTimer = setInterval(() => {
+            $el.trigger(dir === "next" ? "next.owl.carousel" : "prev.owl.carousel");
+          }, STEP_INTERVAL);
+        }, HOLD_DELAY);
+      };
+
+      const stop = () => {
+        clearTimeout(holdTimer);
+        clearInterval(repeatTimer);
+        holdTimer = null;
+        repeatTimer = null;
+      };
+
+      $btn.on("mousedown.owlHold touchstart.owlHold", start);
+      $btn.on("mouseleave.owlHold blur.owlHold", stop);
+      $(document).on("mouseup.owlHold touchend.owlHold touchcancel.owlHold", stop);
+
+      return () => {
+        stop();
+        $btn.off(".owlHold");
+        $(document).off(".owlHold");
+      };
+    };
+
+    const $prev = $el.find(".owl-nav .owl-prev");
+    const $next = $el.find(".owl-nav .owl-next");
+    const unbindPrev = bindPressHold($prev, "prev");
+    const unbindNext = bindPressHold($next, "next");
+
     return () => {
-      if ($el.hasClass("owl-loaded")) {
-        try {
+      try {
+        unbindPrev && unbindPrev();
+        unbindNext && unbindNext();
+        if ($el.hasClass("owl-loaded")) {
           $el.trigger("destroy.owl.carousel");
-        } catch {}
-      }
+        }
+      } catch {}
     };
   }, [loading, items.length]);
 
@@ -170,7 +208,7 @@ const NewItems = () => {
   return (
     <section id="section-items" className="no-bottom">
       <div className="container">
-        {/* Title */}
+     
         <div className="row">
           <div className="col-lg-12">
             <div className="text-center">
@@ -180,7 +218,7 @@ const NewItems = () => {
           </div>
         </div>
 
-        {/* Skeleton grid (no Owl) */}
+        {/* skeleton (no Owl while loading) */}
         {showSkeleton ? (
           <div className="row g-3">
             {new Array(4).fill(0).map((_, i) => (
@@ -189,7 +227,6 @@ const NewItems = () => {
                   <div className="author_list_pp">
                     <div className="sk-circle" />
                   </div>
-                  {/* no countdown pill while loading to keep it clean */}
                   <div className="sk-media" />
                   <div className="nft__item_info">
                     <div className="sk-title" />
@@ -201,7 +238,7 @@ const NewItems = () => {
             ))}
           </div>
         ) : (
-          // Owl carousel with real items
+          // all items go into Owl; it handles showing 4-at-a-time
           <div className="owl-carousel owl-theme" ref={carouselRef}>
             {items.map(
               ({ cover, avatar, title, price, likes, expiryMs, nftId, authorId }, idx) => (
@@ -219,7 +256,6 @@ const NewItems = () => {
                       </Link>
                     </div>
 
-                    {/* Only render countdown if expiry exists */}
                     {expiryMs ? (
                       <div className="de_countdown">
                         <Countdown end={expiryMs} />
@@ -270,9 +306,9 @@ const NewItems = () => {
         )}
       </div>
 
-      {/* Scoped styles: skeleton + arrows (same arrow look as Hot Collections) */}
+      {/* scoped styles: skeleton + arrow look  */}
       <style>{`
-        /* skeleton blocks (same vibe as Hot Collections) */
+        /* skeleton blocks */
         .sk-media,
         .sk-title,
         .sk-line,
@@ -306,7 +342,7 @@ const NewItems = () => {
           100% { transform: translateX(100%); }
         }
 
-        /* Owl arrows cloned from the other section */
+        /* owl arrows */
         #section-items .owl-nav button.owl-prev,
         #section-items .owl-nav button.owl-next {
           width: 44px;
