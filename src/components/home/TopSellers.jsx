@@ -1,11 +1,3 @@
-// src/components/home/TopSellers.jsx
-// Notes (from me while building this):
-// - Keep the same markup the theme expects (.author_list, .author_list_pp, .author_list_info).
-// - Show 12 lightweight skeleton rows while axios is in-flight.
-// - Once data lands, swap skeletons for real rows (no layout shift).
-// - Sorting is done client-side so we always render high → low.
-// - Defensive normalizer: the Cloud Function fields vary slightly across endpoints.
-
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
@@ -14,7 +6,7 @@ import AuthorImage from "../../images/author_thumbnail.jpg";
 const API =
   "https://us-central1-nft-cloud-functions.cloudfunctions.net/topSellers";
 
-// Normalize the payload so our render stays dumb/simple.
+// Normalize the payload so our render stays
 function normalizeSeller(raw, idx) {
   const avatar = raw?.authorImage || raw?.avatar || raw?.img || AuthorImage;
   const name = raw?.authorName || raw?.name || raw?.username || "Unnamed";
@@ -47,7 +39,7 @@ const TopSellers = () => {
       })
       .catch((err) => {
         console.warn("topSellers axios failed:", err?.message || err);
-        setSellers([]); // render nothing (you can add an error UI later)
+        setSellers([]); 
       })
       .finally(() => {
         if (alive) setLoading(false);
