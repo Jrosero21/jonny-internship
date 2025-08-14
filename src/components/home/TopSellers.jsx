@@ -1,61 +1,56 @@
+// src/components/home/TopSellers.jsx
+// Notes (from me while building this):
+// - Keep the same markup the theme expects (.author_list, .author_list_pp, .author_list_info).
+// - Show 12 lightweight skeleton rows while axios is in-flight.
+// - Once data lands, swap skeletons for real rows (no layout shift).
+// - Sorting is done client-side so we always render high → low.
+// - Defensive normalizer: the Cloud Function fields vary slightly across endpoints.
+
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
-
 import AuthorImage from "../../images/author_thumbnail.jpg";
 
-// cloud function used for this section
 const API =
   "https://us-central1-nft-cloud-functions.cloudfunctions.net/topSellers";
 
+// Normalize the payload so our render stays dumb/simple.
 function normalizeSeller(raw, idx) {
-  const avatar =
-    raw?.authorImage || raw?.avatar || raw?.img || AuthorImage;
-
-  const name =
-    raw?.authorName || raw?.name || raw?.username || "Unnamed";
-
-  // try a few common numeric fields; coerce to number
+  const avatar = raw?.authorImage || raw?.avatar || raw?.img || AuthorImage;
+  const name = raw?.authorName || raw?.name || raw?.username || "Unnamed";
   const totalNum =
     Number(raw?.total) ||
     Number(raw?.sales) ||
     Number(raw?.volume) ||
     Number(raw?.price) ||
     0;
-
   const authorId = raw?.authorId ?? raw?.id ?? idx;
-
-  return {
-    avatar,
-    name,
-    totalNum,
-    totalLabel: `${(isNaN(totalNum) ? 0 : totalNum).toFixed(1)} ETH`,
-    authorId,
-  };
+  return { avatar, name, authorId, totalNum, totalLabel: `${totalNum.toFixed(1)} ETH` };
 }
 
 const TopSellers = () => {
   const [sellers, setSellers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Fetch + sort once on mount
   useEffect(() => {
     let alive = true;
+    setLoading(true);
 
-    // axios fetch; if this fails we just render an empty list (no skeleton yet)
     axios
       .get(API, { timeout: 8000 })
       .then(({ data }) => {
         if (!alive) return;
-
-        const arr = Array.isArray(data) ? data : [];
-        const normalized = arr.map(normalizeSeller);
-
-        // sort by total desc and cap to 12 (design shows 12 rows)
-        normalized.sort((a, b) => b.totalNum - a.totalNum);
-        setSellers(normalized.slice(0, 12));
+        const list = (Array.isArray(data) ? data : []).map(normalizeSeller);
+        list.sort((a, b) => b.totalNum - a.totalNum); // high → low
+        setSellers(list.slice(0, 12)); // comp shows 12 rows
       })
       .catch((err) => {
         console.warn("topSellers axios failed:", err?.message || err);
-        setSellers([]); // nothing to render; fine for step 1
+        setSellers([]); // render nothing (you can add an error UI later)
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
       });
 
     return () => {
@@ -63,11 +58,13 @@ const TopSellers = () => {
     };
   }, []);
 
+  // Render 12 skeleton rows while loading so the page doesn't jump
+  const showSkeleton = loading;
+
   return (
     <section id="section-popular" className="pb-5">
       <div className="container">
         <div className="row">
-          {/* title stays exactly like the template */}
           <div className="col-lg-12">
             <div className="text-center">
               <h2>Top Sellers</h2>
@@ -75,29 +72,82 @@ const TopSellers = () => {
             </div>
           </div>
 
-          {/* ordered list prints the 1..12 */}
           <div className="col-md-12">
             <ol className="author_list">
-              {sellers.map(({ avatar, name, totalLabel, authorId }, index) => (
-                <li key={authorId ?? index}>
-                  <div className="author_list_pp">
-                    {/* clicking avatar or name should go to /author/:id */}
-                    <Link to={`/author/${authorId}`}>
-                      <img className="lazy pp-author" src={avatar} alt={name} />
-                      <i className="fa fa-check"></i>
-                    </Link>
-                  </div>
-
-                  <div className="author_list_info">
-                    <Link to={`/author/${authorId}`}>{name}</Link>
-                    <span>{totalLabel}</span>
-                  </div>
-                </li>
-              ))}
+              {showSkeleton
+                ? // ---- Skeleton state (12 rows) ----
+                  Array.from({ length: 12 }).map((_, idx) => (
+                    <li key={`sk-${idx}`}>
+                      <div className="author_list_pp">
+                        <div className="sk-pp" aria-hidden="true" />
+                      </div>
+                      <div className="author_list_info">
+                        <div className="sk-line sk-name" aria-hidden="true" />
+                        <div className="sk-line sk-eth" aria-hidden="true" />
+                      </div>
+                    </li>
+                  ))
+                : // ---- Data state ----
+                  sellers.map(({ avatar, name, totalLabel, authorId }, idx) => (
+                    <li key={authorId ?? idx}>
+                      <div className="author_list_pp">
+                        <Link to={`/author/${authorId}`}>
+                          <img className="lazy pp-author" src={avatar} alt={name} />
+                          <i className="fa fa-check"></i>
+                        </Link>
+                      </div>
+                      <div className="author_list_info">
+                        <Link to={`/author/${authorId}`}>{name}</Link>
+                        <span>{totalLabel}</span>
+                      </div>
+                    </li>
+                  ))}
             </ol>
           </div>
         </div>
       </div>
+
+      {/* Scoped skeleton styles.
+         Keeping it tiny and self-contained so we don't spill global CSS. */}
+      <style>{`
+        /* Base shimmer */
+        .sk-pp,
+        .sk-line {
+          position: relative;
+          overflow: hidden;
+          background: #f1f3f5;
+        }
+        .sk-pp::after,
+        .sk-line::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          transform: translateX(-100%);
+          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+          animation: sk-shimmer 1.1s infinite;
+        }
+        @keyframes sk-shimmer {
+          100% { transform: translateX(100%); }
+        }
+
+        /* Avatar circle roughly matches .pp-author sizing */
+        .sk-pp {
+          width: 56px;
+          height: 56px;
+          border-radius: 9999px;
+        }
+
+        /* Text lines approximate name + ETH row heights/widths */
+        .sk-line {
+          height: 16px;
+          border-radius: 8px;
+        }
+        .sk-name { width: 180px; margin-bottom: 8px; }
+        .sk-eth  { width: 70px;  opacity: 0.8; }
+        
+        /* Small tweak so long names don't push the ETH down while loading */
+        .author_list_info .sk-line { display: block; }
+      `}</style>
     </section>
   );
 };
