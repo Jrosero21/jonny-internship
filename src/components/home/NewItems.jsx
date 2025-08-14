@@ -1,14 +1,22 @@
+// Notes (matching HotCollections approach):
+// - Stick with the jQuery Owl plugin so the markup matches theme CSS exactly.
+// - Do NOT change the card structure.
+// - Show skeletons first; only mount Owl once real data is in (avoids StrictMode issues).
+// - Arrows: inject characters via navText using `.hc-arrow` classes. All visual styling
+//   (size/weight/position/overlap) comes from the same global CSS HotCollections uses.
+
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import $ from "jquery";
 
+// Fallbacks (same concept as before)
 import AuthorImage from "../../images/author_thumbnail.jpg";
 import nftImage from "../../images/nftImage.jpg";
 
 const API = "https://us-central1-nft-cloud-functions.cloudfunctions.net/newItems";
 
-// expose jQuery for Owl (same approach as Hot Collections)
+// Expose jQuery to Owl (same as HotCollections)
 if (typeof window !== "undefined") {
   window.$ = window.jQuery = $;
 }
@@ -18,11 +26,11 @@ try {
   try {
     require("owl.carousel/dist/owl.carousel");
   } catch {
-    // if both fail, $().owlCarousel will be undefined at runtime
+   
   }
 }
 
-// normalize API → card shape
+// Normalize the API payload into what the card needs
 function normalize(raw, idx) {
   const cover =
     raw?.nftImage || raw?.image || raw?.cover || raw?.banner || nftImage;
@@ -34,7 +42,7 @@ function normalize(raw, idx) {
   const likes =
     typeof raw?.likes === "number" ? raw.likes : Number(raw?.likes) || 0;
 
-  // expiryDate may be seconds or ms; convert to ms; 0 means no countdown
+  // expiryDate can be seconds or ms; normalize to ms; 0 means "absent"
   const unix = Number(raw?.expiryDate ?? raw?.expiry ?? 0);
   const expiryMs = unix ? (unix > 1e12 ? unix : unix * 1000) : 0;
 
@@ -44,7 +52,7 @@ function normalize(raw, idx) {
   return { cover, avatar, title, price, likes, expiryMs, nftId, authorId };
 }
 
-// tiny countdown per card (updates every second)
+// Small countdown (hh mm ss). Renders nothing if no end, "EXPIRED" when past.
 const Countdown = ({ end }) => {
   const [now, setNow] = useState(() => Date.now());
 
@@ -54,7 +62,7 @@ const Countdown = ({ end }) => {
     return () => clearInterval(id);
   }, [end]);
 
-  if (!end) return null; // hide pill entirely when no expiry
+  if (!end) return null;
 
   const delta = end - now;
   if (delta <= 0) return <span>EXPIRED</span>;
@@ -72,9 +80,10 @@ const NewItems = () => {
   const [loading, setLoading] = useState(true);
   const carouselRef = useRef(null);
 
-  // fetch all items
+  // Fetch all items
   useEffect(() => {
     let alive = true;
+    setLoading(true);
 
     axios
       .get(API, { timeout: 8000 })
@@ -83,7 +92,7 @@ const NewItems = () => {
         const arr = Array.isArray(data) ? data : [];
         let usable = arr.map(normalize);
 
-        // if < 4, duplicate to keep loop behavior sane
+        // Ensure >=4 so loop feels right on small datasets
         if (usable.length > 0 && usable.length < 4) {
           while (usable.length < 4) usable = usable.concat(usable);
           usable = usable.slice(0, 4);
@@ -92,7 +101,7 @@ const NewItems = () => {
         setItems(usable);
       })
       .catch(() => {
-        setItems([]); // skeleton shows
+        setItems([]); // skeletons will show
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -103,14 +112,13 @@ const NewItems = () => {
     };
   }, []);
 
-  // Owl lifecycle 
+
   useEffect(() => {
     const el = carouselRef.current;
     if (!el) return;
 
     const $el = $(el);
 
-    // no owl while loading/empty; also ensure teardown if it was mounted
     if (loading || items.length === 0) {
       if ($el.hasClass("owl-loaded")) {
         try {
@@ -122,7 +130,7 @@ const NewItems = () => {
       return;
     }
 
-    // safety destroy before init (StrictMode double-effect guard)
+    // Safety destroy before init (StrictMode)
     if ($el.hasClass("owl-loaded")) {
       try {
         $el.trigger("destroy.owl.carousel");
@@ -133,15 +141,16 @@ const NewItems = () => {
 
     $el.owlCarousel({
       items: 4,
-      margin: 14,
-      loop: true,
-      nav: true,
-      dots: false,
       slideBy: 1,
+      loop: true,
+      margin: 10,
+      dots: false,
+      nav: true,
       smartSpeed: 400,
+      // Use the exact same arrow elements HotCollections uses.
       navText: [
-        '<span aria-label="Previous"></span>',
-        '<span aria-label="Next"></span>',
+        '<span class="hc-arrow hc-arrow--prev" aria-label="Previous">‹</span>',
+        '<span class="hc-arrow hc-arrow--next" aria-label="Next">›</span>',
       ],
       responsive: {
         0: { items: 1 },
@@ -150,7 +159,6 @@ const NewItems = () => {
         1200: { items: 4 },
       },
     });
-
 
     const HOLD_DELAY = 250;
     const STEP_INTERVAL = 160;
@@ -208,7 +216,7 @@ const NewItems = () => {
   return (
     <section id="section-items" className="no-bottom">
       <div className="container">
-     
+        {/* Title */}
         <div className="row">
           <div className="col-lg-12">
             <div className="text-center">
@@ -218,32 +226,33 @@ const NewItems = () => {
           </div>
         </div>
 
-        {/* skeleton (no Owl while loading) */}
+        {/* Skeletons */}
         {showSkeleton ? (
           <div className="row g-3">
-            {new Array(4).fill(0).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <div className="col-lg-3 col-md-6 col-sm-6 col-xs-12" key={`sk-${i}`}>
                 <div className="nft__item">
                   <div className="author_list_pp">
-                    <div className="sk-circle" />
+                    <div className="skeleton-box" style={{ width: 42, height: 42, borderRadius: "50%" }} />
                   </div>
-                  <div className="sk-media" />
+                  <div className="skeleton-box" style={{ width: "100%", height: 220, borderRadius: 12, marginTop: 8, marginBottom: 12 }} />
                   <div className="nft__item_info">
-                    <div className="sk-title" />
-                    <div className="sk-line w-120" />
-                    <div className="sk-line w-80" />
+                    <div className="skeleton-box" style={{ width: "55%", height: 18, borderRadius: 9, marginBottom: 10 }} />
+                    <div className="skeleton-box" style={{ width: 120, height: 14, borderRadius: 7, marginBottom: 8 }} />
+                    <div className="skeleton-box" style={{ width: 80, height: 14, borderRadius: 7 }} />
                   </div>
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          // all items go into Owl; it handles showing 4-at-a-time
+          // Data state: exact card markup inside Owl slides
           <div className="owl-carousel owl-theme" ref={carouselRef}>
             {items.map(
               ({ cover, avatar, title, price, likes, expiryMs, nftId, authorId }, idx) => (
                 <div key={nftId ?? idx}>
                   <div className="nft__item">
+                    {/* Author avatar → /author/:id */}
                     <div className="author_list_pp">
                       <Link
                         to={authorId != null ? `/author/${authorId}` : "/author"}
@@ -256,12 +265,14 @@ const NewItems = () => {
                       </Link>
                     </div>
 
+                    {/* Timer (hidden entirely if no expiry) */}
                     {expiryMs ? (
                       <div className="de_countdown">
                         <Countdown end={expiryMs} />
                       </div>
                     ) : null}
 
+                    {/* Main preview → /item-details/:id */}
                     <div className="nft__item_wrap">
                       <div className="nft__item_extra">
                         <div className="nft__item_buttons">
@@ -305,74 +316,6 @@ const NewItems = () => {
           </div>
         )}
       </div>
-
-      {/* scoped styles: skeleton + arrow look  */}
-      <style>{`
-        /* skeleton blocks */
-        .sk-media,
-        .sk-title,
-        .sk-line,
-        .sk-circle {
-          position: relative;
-          overflow: hidden;
-          background: #f1f3f5;
-          border-radius: 12px;
-        }
-        .sk-circle {
-          width: 42px; height: 42px; border-radius: 9999px;
-        }
-        .sk-media { height: 220px; margin-top: 8px; margin-bottom: 12px; }
-        .sk-title { height: 18px; width: 60%; border-radius: 6px; margin-bottom: 10px; }
-        .sk-line { height: 14px; border-radius: 6px; margin-bottom: 8px; }
-        .sk-line.w-120 { width: 120px; }
-        .sk-line.w-80 { width: 80px; }
-
-        .sk-media::after,
-        .sk-title::after,
-        .sk-line::after,
-        .sk-circle::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          transform: translateX(-100%);
-          background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
-          animation: shimmer 1.2s infinite;
-        }
-        @keyframes shimmer {
-          100% { transform: translateX(100%); }
-        }
-
-        /* owl arrows */
-        #section-items .owl-nav button.owl-prev,
-        #section-items .owl-nav button.owl-next {
-          width: 44px;
-          height: 44px;
-          border-radius: 9999px;
-          background: #fff !important;
-          border: 1px solid rgba(0,0,0,0.08);
-          box-shadow: 0 4px 10px rgba(0,0,0,0.06);
-          position: absolute;
-          top: 40%;
-          transform: translateY(-50%);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        #section-items .owl-nav button.owl-prev { left: -8px; }
-        #section-items .owl-nav button.owl-next { right: -8px; }
-        #section-items .owl-nav button.owl-prev::before,
-        #section-items .owl-nav button.owl-next::before {
-          font-weight: 300;
-          font-size: 18px;
-          line-height: 1;
-          display: block;
-          position: relative;
-          top: -1px;
-        }
-        #section-items .owl-nav button.owl-prev::before { content: '‹'; }
-        #section-items .owl-nav button.owl-next::before { content: '›'; }
-        #section-items .owl-nav button span { display: none; }
-      `}</style>
     </section>
   );
 };
