@@ -1,7 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Link } from "react-router-dom";
+import AOS from "aos";
+import "aos/dist/aos.css";
 
 const BrowseByCategory = () => {
+  useEffect(() => {
+    AOS.init({
+      duration: 700,
+      easing: "ease-out-cubic",
+      once: true,     // animate only once; stays visible
+      offset: 140,    // start when section is comfortably in view
+      // mirror: false // don't animate out on scroll up
+    });
+    // If content loads dynamically, you can refresh:
+    // window.addEventListener("load", () => AOS.refresh());
+  }, []);
+
   return (
     <section id="section-category" className="no-top">
       <div className="container">
@@ -12,38 +26,86 @@ const BrowseByCategory = () => {
               <div className="small-border bg-color-2"></div>
             </div>
           </div>
+
           <div className="col-md-2 col-sm-4 col-6 mb-sm-30">
-            <Link to="/explore" className="icon-box style-2 rounded">
+            <Link
+              to="/explore"
+              className="icon-box style-2 rounded"
+              data-aos="fade-right"
+              data-aos-delay="100"
+              data-aos-anchor="#section-category"
+              data-aos-anchor-placement="top-bottom"
+            >
               <i className="fa fa-image"></i>
               <span>Art</span>
             </Link>
           </div>
+
           <div className="col-md-2 col-sm-4 col-6 mb-sm-30">
-            <Link to="/explore" className="icon-box style-2 rounded">
+            <Link
+              to="/explore"
+              className="icon-box style-2 rounded"
+              data-aos="fade-right"
+              data-aos-delay="200"
+              data-aos-anchor="#section-category"
+              data-aos-anchor-placement="top-bottom"
+            >
               <i className="fa fa-music"></i>
               <span>Music</span>
             </Link>
           </div>
+
           <div className="col-md-2 col-sm-4 col-6 mb-sm-30">
-            <Link to="/explore" className="icon-box style-2 rounded">
+            <Link
+              to="/explore"
+              className="icon-box style-2 rounded"
+              data-aos="fade-right"
+              data-aos-delay="300"
+              data-aos-anchor="#section-category"
+              data-aos-anchor-placement="top-bottom"
+            >
               <i className="fa fa-search"></i>
               <span>Domain Names</span>
             </Link>
           </div>
+
           <div className="col-md-2 col-sm-4 col-6 mb-sm-30">
-            <Link to="/explore" className="icon-box style-2 rounded">
+            <Link
+              to="/explore"
+              className="icon-box style-2 rounded"
+              data-aos="fade-right"
+              data-aos-delay="400"
+              data-aos-anchor="#section-category"
+              data-aos-anchor-placement="top-bottom"
+            >
               <i className="fa fa-globe"></i>
               <span>Virtual Worlds</span>
             </Link>
           </div>
+
           <div className="col-md-2 col-sm-4 col-6 mb-sm-30">
-            <Link to="/explore" className="icon-box style-2 rounded">
+            <Link
+              to="/explore"
+              className="icon-box style-2 rounded"
+              data-aos="fade-right"
+              data-aos-delay="500"
+              data-aos-anchor="#section-category"
+              data-aos-anchor-placement="top-bottom"
+            >
               <i className="fa fa-vcard"></i>
               <span>Trading Cards</span>
             </Link>
           </div>
+
           <div className="col-md-2 col-sm-4 col-6 mb-sm-30">
-            <Link to="/explore" className="icon-box style-2 rounded">
+            <Link
+              to="/explore"
+              className="icon-box style-2 rounded"
+              data-aos="fade-right"
+              data-aos-delay="600"
+              data-aos-anchor="#section-category"
+              data-aos-anchor-placement="top-bottom"
+            >
               <i className="fa fa-th"></i>
               <span>Collectibles</span>
             </Link>

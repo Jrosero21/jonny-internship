@@ -126,10 +126,10 @@ const HotCollections = () => {
   }, [loading, items.length]);
 
   return (
-    <section id="section-collections" className="no-bottom">
+    <section id="section-collections" className="no-bottom" >
       <div className="container">
         {/* Title */}
-        <div className="row">
+        <div className="row" data-aos="fade" style={{ visibility: "visible"}} >
           <div className="col-lg-12">
             <div className="text-center">
               <h2>Hot Collections</h2>

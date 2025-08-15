@@ -217,10 +217,10 @@ const NewItems = () => {
     <section id="section-items" className="no-bottom">
       <div className="container">
         {/* Title */}
-        <div className="row">
+        <div className="row" data-aos="fade" style={{ visibility: "visible"}}>
           <div className="col-lg-12">
             <div className="text-center">
-              <h2>New Items</h2>
+              <h2 data-aos="fade" style={{ visibility: "visible"}}>New Items</h2>
               <div className="small-border bg-color-2"></div>
             </div>
           </div>
