@@ -64,7 +64,7 @@ const TopSellers = () => {
             </div>
           </div>
 
-          <div className="col-md-12">
+          <div className="col-md-12" data-aos="fade" >
             <ol className="author_list">
               {showSkeleton
                 ? // ---- Skeleton state (12 rows) ----
